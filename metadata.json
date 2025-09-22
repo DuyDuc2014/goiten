@@ -1,0 +1,5 @@
+{
+  "name": "Vòng Quay May Mắn",
+  "description": "Một ứng dụng web vòng quay may mắn để gọi ngẫu nhiên học sinh lên bảng. Giáo viên có thể tải lên và quản lý danh sách học sinh, vòng quay sẽ chọn ngẫu nhiên một em với hiệu ứng âm thanh và hoa giấy chúc mừng.",
+  "requestFramePermissions": []
+}
