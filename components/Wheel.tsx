@@ -5,17 +5,32 @@ interface WheelProps {
   students: string[];
   isSpinning: boolean;
   onSpinFinish: (winner: string) => void;
-  onHighlight: (student: string) => void;
   highlightedStudent: string | null;
 }
 
-const Wheel: React.FC<WheelProps> = ({ students, isSpinning, onSpinFinish, onHighlight, highlightedStudent }) => {
+const Wheel: React.FC<WheelProps> = ({ students, isSpinning, onSpinFinish, highlightedStudent }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const spinTime = useRef(0);
   const spinTimeTotal = useRef(0);
   const currentAngle = useRef(0);
   const startAngle = useRef(0); // The angle at the beginning of a spin
   const spinRotation = useRef(0); // The total amount of rotation for the current spin
+
+  const getCurrentIndex = useCallback((angle: number) => {
+      const numStudents = students.length;
+      if (numStudents === 0) return -1;
+      
+      // Normalize angle to be between 0 and 2PI
+      const normalizedAngle = (angle % (Math.PI * 2) + (Math.PI * 2)) % (Math.PI * 2);
+      
+      // The pointer is at the top (270 degrees or 1.5 * PI), so we adjust the angle
+      // to make the winning segment align with angle 0.
+      const winningAngle = (Math.PI * 1.5) - normalizedAngle;
+      const positiveWinningAngle = (winningAngle + (Math.PI * 2)) % (Math.PI * 2);
+      
+      const arc = Math.PI * 2 / numStudents;
+      return Math.floor(positiveWinningAngle / arc);
+  }, [students]);
 
   const drawWheel = useCallback(() => {
     const canvas = canvasRef.current;
@@ -24,10 +39,25 @@ const Wheel: React.FC<WheelProps> = ({ students, isSpinning, onSpinFinish, onHig
     if (!ctx) return;
 
     const numStudents = students.length;
-    const arc = Math.PI * 2 / (numStudents || 1);
+    if (numStudents === 0) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+    }
+    
+    const arc = Math.PI * 2 / numStudents;
     const radius = canvas.width / 2;
     const centerX = radius;
     const centerY = radius;
+
+    // Determine which student to highlight
+    let highlightedIndex = -1;
+    if (isSpinning) {
+        // During spin, calculate from current angle
+        highlightedIndex = getCurrentIndex(currentAngle.current);
+    } else if (highlightedStudent) {
+        // When idle, find the index of the prop-defined winner
+        highlightedIndex = students.indexOf(highlightedStudent);
+    }
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = '#334155'; // slate-700 for separation
@@ -54,76 +84,58 @@ const Wheel: React.FC<WheelProps> = ({ students, isSpinning, onSpinFinish, onHig
       const textAngle = angle + arc / 2;
       ctx.rotate(textAngle);
       
-      const isHighlighted = students[i] === highlightedStudent;
+      const studentName = students[i];
+      const isHighlighted = i === highlightedIndex;
 
-      // Dynamic styling for text for better readability
-      let fontSize;
-      if (numStudents <= 10) fontSize = 18;
-      else if (numStudents <= 20) fontSize = 14;
-      else if (numStudents <= 30) fontSize = 11;
-      else fontSize = 9;
-      
-      ctx.font = `900 ${fontSize}px Roboto, sans-serif`;
+      // --- Dynamic Text Sizing and Truncation Logic ---
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      const textRadius = radius * 0.7;
+      const maxTextWidth = 2 * textRadius * Math.tan(arc / 2) - 15;
       
-      // --- Improved Truncation Logic ---
-      let studentName = students[i];
-      const maxWidth = radius * 0.65; 
+      let fontSize = 20;
+      ctx.font = `900 ${fontSize}px Roboto, sans-serif`;
 
-      if (ctx.measureText(studentName).width > maxWidth) {
-        while (ctx.measureText(studentName + '…').width > maxWidth && studentName.length > 1) {
-          studentName = studentName.slice(0, -1);
-        }
-        studentName += '…';
+      while (ctx.measureText(studentName).width > maxTextWidth && fontSize > 8) {
+        fontSize--;
+        ctx.font = `900 ${fontSize}px Roboto, sans-serif`;
       }
 
-      // Orient text for readability by flipping it on the left side
+      let displayName = studentName;
+      if (ctx.measureText(displayName).width > maxTextWidth) {
+        while (ctx.measureText(displayName + '…').width > maxTextWidth && displayName.length > 1) {
+          displayName = displayName.slice(0, -1);
+        }
+        displayName += '…';
+      }
+
       const isFlipped = textAngle > Math.PI / 2 && textAngle < (3 * Math.PI) / 2;
       if (isFlipped) {
         ctx.rotate(Math.PI);
       }
-
-      // Add a stroke for better contrast and readability
-      const textPosition = radius * 0.7;
       
-      // Define styles based on highlight state
-      ctx.fillStyle = isHighlighted ? '#facc15' : 'white'; // yellow-400
+      ctx.fillStyle = isHighlighted ? '#facc15' : 'white';
       ctx.strokeStyle = 'black';
       ctx.lineWidth = isHighlighted ? 5 : 4;
       ctx.lineJoin = 'round';
 
-
-      // Draw stroke behind the fill for a crisp outline
-      ctx.strokeText(studentName, textPosition, 0);
-      ctx.fillText(studentName, textPosition, 0);
+      ctx.strokeText(displayName, textRadius, 0);
+      ctx.fillText(displayName, textRadius, 0);
       ctx.restore();
     }
     ctx.restore();
-  }, [students, highlightedStudent]);
+  }, [students, highlightedStudent, isSpinning, getCurrentIndex]);
 
   const easeOut = (t: number, b: number, c: number, d: number) => {
-    const ts = (t /= d) * t;
-    const tc = ts * t;
-    return b + c * (tc * ts + -5 * ts * ts + 10 * tc + -10 * ts + 5 * t);
-  };
-  
-  const getCurrentIndex = (angle: number) => {
-      const numStudents = students.length;
-      if (numStudents === 0) return -1;
-      
-      const degrees = (angle * 180 / Math.PI) % 360;
-      // The pointer is at 270 degrees (top of the circle).
-      const winningAngle = (270 - degrees + 360) % 360;
-      const arcDegrees = 360 / numStudents;
-      return Math.floor(winningAngle / arcDegrees);
+    t /= d;
+    t--;
+    return c * (t * t * t + 1) + b;
   };
 
   const spin = useCallback(() => {
-    spinTime.current += 16; // Roughly 60fps
+    spinTime.current += 16;
     
     if (spinTime.current >= spinTimeTotal.current) {
-        // Set to the exact final angle to prevent slight inaccuracies
         currentAngle.current = startAngle.current + spinRotation.current;
         const finalIndex = getCurrentIndex(currentAngle.current);
         if (finalIndex !== -1) {
@@ -135,14 +147,9 @@ const Wheel: React.FC<WheelProps> = ({ students, isSpinning, onSpinFinish, onHig
     const easedSpin = easeOut(spinTime.current, 0, spinRotation.current, spinTimeTotal.current);
     currentAngle.current = startAngle.current + easedSpin;
     
-    const currentIndex = getCurrentIndex(currentAngle.current);
-    if(currentIndex !== -1 && students[currentIndex]) {
-        onHighlight(students[currentIndex]);
-    }
-    
     drawWheel();
-    window.requestAnimationFrame(spin);
-  }, [drawWheel, onSpinFinish, students, onHighlight]);
+    requestAnimationFrame(spin);
+  }, [drawWheel, onSpinFinish, students, getCurrentIndex]);
 
 
   useEffect(() => {
@@ -164,15 +171,12 @@ const Wheel: React.FC<WheelProps> = ({ students, isSpinning, onSpinFinish, onHig
   useEffect(() => {
     if (isSpinning) {
         spinTime.current = 0;
-        spinTimeTotal.current = Math.random() * 3000 + 5000; // 5-8 seconds
+        spinTimeTotal.current = Math.random() * 4000 + 6000;
         startAngle.current = currentAngle.current;
-        // Calculate a new random rotation amount. 
-        // Add at least 5 full rotations plus a random partial rotation for a good spin.
-        spinRotation.current = (Math.PI * 2 * (5 + Math.random() * 5));
+        spinRotation.current = (Math.PI * 2 * (7 + Math.random() * 5));
         spin();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSpinning]);
+  }, [isSpinning, spin]);
 
   return <canvas ref={canvasRef} className="w-full h-full" />;
 };

@@ -13,6 +13,18 @@
       body {
         font-family: 'Roboto', sans-serif;
       }
+      /* Hiệu ứng chuyển động cho gradient của tiêu đề */
+      @keyframes gradient-pan {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
     </style>
   <script type="importmap">
 {
@@ -27,8 +39,10 @@
   <body class="bg-slate-900 text-white">
     <div id="root"></div>
     <!-- Audio files for sound effects -->
-    <audio id="spinning-sound" src="https://cdn.pixabay.com/audio/2022/03/10/audio_2755513d8d.mp3" preload="auto"></audio>
-    <audio id="winning-sound" src="https://cdn.pixabay.com/audio/2021/08/04/audio_bb630cc098.mp3" preload="auto"></audio>
+    <audio id="spinning-sound" src="https://cdn.pixabay.com/audio/2022/03/10/audio_c35f297c1a.mp3" preload="auto"></audio>
+    <audio id="winning-sound" src="https://cdn.pixabay.com/audio/2022/01/18/audio_45b3cdf816.mp3" preload="auto"></audio>
+    <audio id="background-music" loop src="https://cdn.pixabay.com/audio/2023/10/01/audio_432f709219.mp3" preload="auto"></audio>
+    <audio id="race-music" loop src="https://cdn.pixabay.com/audio/2023/02/03/audio_145d5a2f02.mp3" preload="auto"></audio>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
